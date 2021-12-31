@@ -35,7 +35,8 @@ planned features
 * Support for xbox360 isos
 
 ## Requirements
-On Windows you need to have Microsoft .Net installed. On Linux you need to have mono installed.
+On Windows you need to have Microsoft .Net installed.  
+On Linux you need to have mono installed.
 
 ## Usage
 **Scrubbing:**
