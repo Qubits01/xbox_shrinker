@@ -24,21 +24,27 @@ The idea is to store the rc4 stream files to a (maybe less expensive) cold stora
 Improvements over LedZeppelin68's dvd-shrinker
 * for the scrubbing process, the ss.xml is *optional* (lack of ss.xml will increase processing time)
 * speed improvement for scrubbing process when ss.xml is used (due to new algorithm)
-* for the unscrubbing process, the ss.xml is not used
+* for the unscrubbing process, the ss.xml is *not used*
 
 new features
-* supports scrubbing of *all* iso files
-* supports unscrubbing of *all* iso.dec files (rc4 stream games need a .rc4 file present, created at scrubbing process)
+* supports scrubbing of **all** iso files
+* supports unscrubbing of **all** iso.dec files (rc4 stream games need a .rc4 file present, created at scrubbing process)
 * Entries not found in ss.xml are added automatically
 
 ## Requirements
 On Windows you need to have Microsoft .Net installed. On Linux you need to have mono installed.
 
 ## Usage
-Scrubbing:
-```xbox_shrinker <.iso file>```
-Unscrubbing:
-```xbox_shrinker <.iso.dec file>```
+**Scrubbing:**
+```
+xbox_shrinker <.iso file>
+```
+**Unscrubbing:**
+```
+xbox_shrinker <.iso.dec file>
+```
 When unscrubbing a rc4 stream game named `gamename.iso.dec`, the program expects a .rc4 file names `gamename.rc4`.
 Alternatively, you can specify the rc4 file specifically using
-```xbox_shrinker <.iso.dec file> <.rc4 file>```
+```
+xbox_shrinker <.iso.dec file> <.rc4 file>
+```
