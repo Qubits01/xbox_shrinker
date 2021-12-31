@@ -31,6 +31,9 @@ new features
 * supports unscrubbing of **all** iso.dec files (rc4 stream games need a .rc4 file present, created at scrubbing process)
 * Entries not found in ss.xml are added automatically
 
+planned features
+* Support for xbox360 isos
+
 ## Requirements
 On Windows you need to have Microsoft .Net installed. On Linux you need to have mono installed.
 
