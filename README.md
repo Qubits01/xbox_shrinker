@@ -16,7 +16,7 @@ Early xbox games used a (proprietary) stream algorithm, that uses a 32-Bit seed.
 
 # Handling of rc4 stream games
 
-Since the seed of games that use the rc4 algorithm for padding, the random stream is separated from the iso and saved to a .rc4 file. This file is needed if you want to reconstruct the scrubbed iso to the original iso.
+For games that use the rc4 algorithm for padding, the random stream is separated from the iso and saved to a .rc4 file. This file is needed if you want to reconstruct the scrubbed iso to the original iso.
 
 The idea is to store the rc4 stream files to a (maybe less expensive) cold storate and keep the scrubbed isos for everyday use. For games that use the proprietary Microsoft algorithm, no rc4 stream file is created. Reconstruction is possible with the 32-Bit seed.
 
@@ -37,14 +37,15 @@ On Windows you need to have Microsoft .Net installed. On Linux you need to have 
 ## Usage
 **Scrubbing:**
 ```
-xbox_shrinker <.iso file>
+xbox_shrinker.exe <.iso file>
 ```
 **Unscrubbing:**
 ```
-xbox_shrinker <.iso.dec file>
+xbox_shrinker.exe <.iso.dec file>
 ```
 When unscrubbing a rc4 stream game named `gamename.iso.dec`, the program expects a .rc4 file names `gamename.rc4`.
 Alternatively, you can specify the rc4 file specifically using
 ```
-xbox_shrinker <.iso.dec file> <.rc4 file>
+xbox_shrinker.exe <.iso.dec file> <.rc4 file>
 ```
+On Linux the commands need to be prepended by `mono`
