@@ -72,7 +72,7 @@ Offsets in the table below are relative to the beginning of the game partition o
 | Offset | Type      | Decription                                                  |
 |--------|-----------|-------------------------------------------------------------|
 | 0      | uint32    | flag for seed (1) or rc4 (0)                                |
-| 4      | uint64    | seed value (1) or sector count of rc4 file (0)              |
+| 4      | uint64    | seed value or sector count of rc4 file                      |
 | 12     | uint64    | space for possible future storage of rc4 seed key           |
 | 20     | byte\[16\]| MD5 hash of original file                                   |
 | 36     | uint32    | Count of security sectors (always 16 for OG XBOX)           |
