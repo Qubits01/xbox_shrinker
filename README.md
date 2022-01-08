@@ -21,7 +21,7 @@ For games that use the rc4 algorithm for padding, the random stream is separated
 The idea is to store the rc4 stream files to a (maybe less expensive) cold storate and keep the scrubbed isos for everyday use.  
 For games that use the proprietary Microsoft algorithm, no rc4 stream file is created. Reconstruction is possible with the 32-Bit seed.
 
-## ss.xml  
+# ss.xml  
 This file, if present, will speed up the processing of an image file.  
 For processing, you need the seed key (for non-rc4 games) and the security sector ranges (for all games).  
 These can be calculated, but you can provide the info directly in the ss.xml and skip these steps.  
@@ -52,18 +52,27 @@ On Linux you need to have mono installed.
 
 ## Usage  
 If you want to make use of a ss.xml file, it needs to be in the same directory as the executable.  
-A ss.xml file will automatically created when processing your first file and all data will be updated with every file processed.
-**Scrubbing:**
+A ss.xml file will automatically created when processing your first file and all data will be updated with every file processed.  
+**Scrubbing and unscrubbing**
 ```
-xbox_shrinker.exe <.iso file>
-```
-**Unscrubbing:**
-```
-xbox_shrinker.exe <.iso.dec file>
+xbox_shrinker.exe <iso/iso.dec file>
 ```
 When unscrubbing a rc4 stream game named `gamename.iso.dec`, the program expects a .rc4 file names `gamename.rc4`.  
 Alternatively, you can specify the rc4 file specifically using
 ```
-xbox_shrinker.exe <.iso.dec file> <.rc4 file>
+xbox_shrinker.exe <iso.dec file> <rc4 file>
 ```
 On Linux the commands need to be prepended by `mono`
+
+# Metadata
+To be able unscrub an image without the need for external files or information (apart from the rc4 file), metadata is stored in the scrubbed file during scrubbing the process.  
+The information is stored at the beginning of the first sector of the game partition at offset `0x18300000`.
+
+| Offset | Type      | Decription                                                  |
+|--------|-----------|-------------------------------------------------------------|
+| 0      | uint32    | flag for seed (1) or rc4 (0)                                |
+| 4      | uint64    | lower 32Bit: seed value (1) or sector count of rc4 file (0) |
+| 12     | uint64    | space for possible future storage of rc4 seed               |
+| 20     | byte[16]  | MD5 hash of original file                                   |
+| 36     | uint32    | Count of security sectors (always 16 for OG XBOX)           |
+| 40     | 32xuint32 | start- and endsector for each security sector range         |
