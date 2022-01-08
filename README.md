@@ -21,11 +21,22 @@ For games that use the rc4 algorithm for padding, the random stream is separated
 The idea is to store the rc4 stream files to a (maybe less expensive) cold storate and keep the scrubbed isos for everyday use.  
 For games that use the proprietary Microsoft algorithm, no rc4 stream file is created. Reconstruction is possible with the 32-Bit seed.
 
+## ss.xml  
+This file, if present, will speed up the processing of an image file.  
+For processing, you need the seed key (for non-rc4 games) and the security sector ranges (for all games).  
+These can be calculated, but you can provide the info directly in the ss.xml and skip these steps.  
+The ss.xml has the following format (with one example entry):  
+```
+<datafile>
+  <rom name="Medal of Honor - Frontline (Europe).iso" md5="79ab5eb5c6b85f84251b36d062e9fce3" seed="" ssrange="292904:296999,445066:449161,637988:642083,830074:834169,989386:993481,1145254:1149349,1295804:1299899,1452676:1456771,1984150:1988245,2296762:2300857,2444274:2448369,2598770:2602865,2760160:2764255,2912312:2916407,3067248:3071343,3300562:3304657" />
+</datafile>
+```
+
 # Features
 Improvements over LedZeppelin68's dvd-shrinker
 * for the scrubbing process, the ss.xml is *optional* (lack of ss.xml will increase processing time)
 * speed improvement for scrubbing process when ss.xml is used (due to new algorithm)
-* for the unscrubbing process, the ss.xml is *not used*
+* for the unscrubbing process, the ss.xml is *not* used or needed
 
 new features
 * supports scrubbing of **all** iso files
@@ -33,13 +44,15 @@ new features
 * Entries not found in ss.xml are added automatically
 
 planned features
-* Support for xbox360 isos
+* Support for Xbox360 isos
 
 ## Requirements
 On Windows you need to have Microsoft .Net installed.  
 On Linux you need to have mono installed.
 
-## Usage
+## Usage  
+If you want to make use of a ss.xml file, it needs to be in the same directory as the executable.  
+A ss.xml file will automatically created when processing your first file and all data will be updated with every file processed.
 **Scrubbing:**
 ```
 xbox_shrinker.exe <.iso file>
