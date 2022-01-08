@@ -36,9 +36,9 @@ The ss.xml has the following format (with one example entry):
 Improvements over LedZeppelin68's dvd-shrinker
 * for the scrubbing process, the ss.xml is *optional* (lack of ss.xml will increase processing time)
 * speed improvement for scrubbing process when ss.xml is used (due to new algorithm)
-* for the unscrubbing process, the ss.xml is *not* used or needed
 
 new features
+* for the unscrubbing process, the ss.xml is **not** used or needed
 * supports scrubbing of **all** iso files
 * supports unscrubbing of **all** iso.dec files (rc4 stream games need a .rc4 file present, created at scrubbing process)
 * Entries not found in ss.xml are added automatically
