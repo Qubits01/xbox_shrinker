@@ -77,3 +77,7 @@ Offsets in the table below are relative to the beginning of the game partition o
 | 20     | byte\[16\]| MD5 hash of original file                                   |
 | 36     | uint32    | Count of security sectors (always 16 for OG XBOX)           |
 | 40     | 32xuint32 | start- and endsector for each security sector range         |
+
+# xiso support  
+This program supports redump-style isos only. The main reason is the md5 checksum stored in the scrubbed file which would be different for a file in xiso format.  
+To create and use scrubbed xiso images, please refer to the following diagram:
