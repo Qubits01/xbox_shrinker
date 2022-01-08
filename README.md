@@ -65,14 +65,15 @@ xbox_shrinker.exe <iso.dec file> <rc4 file>
 On Linux the commands need to be prepended by `mono`
 
 # Metadata
-To be able unscrub an image without the need for external files or information (apart from the rc4 file), metadata is stored in the scrubbed file during scrubbing the process.  
-The information is stored at the beginning of the first sector of the game partition at offset `0x18300000`.
+To be able unscrub an image without the need for external files or information (apart from the rc4 file), metadata is stored in the scrubbed file during the scrubbing process.  
+The information is stored at the beginning of the first sector of the game partition at offset `0x18300000`.  
+Offsets in the table below are relative to the beginning of the game partition 0ffset.
 
 | Offset | Type      | Decription                                                  |
 |--------|-----------|-------------------------------------------------------------|
 | 0      | uint32    | flag for seed (1) or rc4 (0)                                |
-| 4      | uint64    | lower 32Bit: seed value (1) or sector count of rc4 file (0) |
-| 12     | uint64    | space for possible future storage of rc4 seed               |
-| 20     | byte[16]  | MD5 hash of original file                                   |
+| 4      | uint64    | seed value (1) or sector count of rc4 file (0)              |
+| 12     | uint64    | space for possible future storage of rc4 seed key           |
+| 20     | byte\[16\]| MD5 hash of original file                                   |
 | 36     | uint32    | Count of security sectors (always 16 for OG XBOX)           |
 | 40     | 32xuint32 | start- and endsector for each security sector range         |
