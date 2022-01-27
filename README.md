@@ -65,7 +65,7 @@ xbox_shrinker.exe <iso.dec file> <rc4 file>
 On Linux the commands need to be prepended by `mono`
 
 # Metadata
-To be able unscrub an image without the need for external files or information (apart from the rc4 file), metadata is stored in the scrubbed file during the scrubbing process.  
+To be able to unscrub an image without the need for external files or information (apart from the rc4 file), metadata is stored in the scrubbed file during the scrubbing process.  
 The information is stored at the beginning of the first sector of the game partition at offset `0x18300000`. This sector is *always* a padding sector.  
 Offsets in the table below are relative to the beginning of the game partition offset.
 
