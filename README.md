@@ -52,7 +52,7 @@ On Linux you need to have mono installed.
 
 ## Usage  
 If you want to make use of a ss.xml file, it needs to be in the same directory as the executable.  
-A ss.xml file will automatically created when processing your first file and all data will be updated with every file processed.  
+If it does not exists, a ss.xml file will automatically be created when processing your first file and all data will be updated with every file processed.  
 **Scrubbing and unscrubbing**
 ```
 xbox_shrinker.exe <iso/iso.dec file>
