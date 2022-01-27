@@ -90,4 +90,4 @@ The current version has been tested successfully with almost 400 different image
 But please be aware that there might still be bugs present. There are some checks that the program does internally when processing a file so whenever the program quits with an error please open an issue. Not all errors might be identified by the program, though.  
 Other ways to check if the file was processed successfully are:
 * unscrub a scrubbed file. The program will calculate the hash and compare it to the hash of the original file.
-* compare the filesize of the compressed unscrubbed image with the sum of the filesizes of the compressed scrubbed image and the rc4 file. These 2 values should be almost identical. If you get a deviation of more than 200MB, open an issue.
+* compare the filesize of the compressed unscrubbed image with the sum of the filesizes of the compressed scrubbed image and the rc4 file. These 2 values should be almost identical. If you get a deviation of more than 100 MB, open an issue.
