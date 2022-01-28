@@ -85,7 +85,7 @@ To create and use scrubbed xiso images, please refer to the following diagram:
 <img src="pics/xiso.png">
 </p>
 For conversion you can use [this tool](https://github.com/Qubits01/redump2xiso).  
-[this tool](https://github.com/LedZeppelin68/dvd-shrinker)
+[XboxDev](https://github.com/XboxDev/extract-xiso) for extract_xiso. 
 
 # Bug report
 The current version has been tested successfully with almost 400 different image files.  
