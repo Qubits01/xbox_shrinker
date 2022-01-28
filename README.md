@@ -2,7 +2,7 @@
 This program will remove (scrub) the random padding found in (OG) xbox iso files.  
 The iso files need to be in redump format.
 The scrubbed iso is still fully functional and can be used in emulators etc.  
-Compressed scrubbed isos are usually several GB smaller than the unscrubbed counterparts.  
+Compressed scrubbed isos are usually several GB smaller than the unscrubbed compressed counterparts.  
 The program also supports unscrubbing of the iso and reconstruction of the original file.
 
 # Credits
