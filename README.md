@@ -80,11 +80,11 @@ Offsets in the table below are relative to the beginning of the game partition o
 
 # xiso support  
 This program supports redump-style isos only. The main reason is the md5 checksum stored in the scrubbed file that would be different for a file in xiso format.  
+For conversion you can use [this tool](https://github.com/Qubits01/redump2xiso).  
 To create and use scrubbed xiso images, please refer to the following diagram:
 <p align="center">
 <img src="pics/xiso.png">
 </p>
-For conversion you can use [this tool](https://github.com/Qubits01/redump2xiso).  
 [XboxDev](https://github.com/XboxDev/extract-xiso) for extract_xiso. 
 
 # Bug report
