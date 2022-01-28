@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,10 +8,6 @@ using System.Xml;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
-
-/*
-  todo: change mergearrays to create disjunct ranges
-*/
 
 
 namespace test
@@ -29,7 +25,9 @@ namespace test
             0xA53F1D11,
             0xB154430F
         };
-
+        const uint GP_OFFSET = 0x18300000;
+        const int SECTOR_SIZE = 0x800;
+        
         static void Main(string[] args)
         {
             if (args.Length == 0)
@@ -37,10 +35,7 @@ namespace test
                 Console.WriteLine("Usage: xbox_srinker.exe <isofile> [<rc4file>]");
                 return;
             }
-            /*
-            test(args[0]);
-            Environment.Exit(0);
-            */
+
             byte[] junk = JunkBlock();
             string fileName = Path.GetFileName(args[0]);
             if (!File.Exists(fileName))
@@ -54,13 +49,15 @@ namespace test
                 Console.WriteLine("Error. Invalid XBOX iso (maybe not in redump format?)");
                 Environment.Exit(0);
             }
-            else if ((version > 4721) && (version < 4831))
+            else if ((version > 4808) && (version < 4831))
             {
                 Console.WriteLine("Unknown Version: " + version.ToString());
                 Environment.Exit(0);
             }
-            bool seedflag = (version <= 4721);
-            bool xml = File.Exists("ss.xml");
+            bool seedflag = (version <= 4808);  //Blade II (USA)
+            string ssxml = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ss.xml");
+            bool xml = File.Exists(ssxml);
+            
             string rc4file = Path.GetFileName(args[0].Replace(".dec", ""));
             rc4file = rc4file.Replace(".iso", ".rc4");
             if (args.Length >= 2)
@@ -73,7 +70,6 @@ namespace test
             UInt32 seed = 0;
             string rom_md5 = "";
             UInt32[,] security_sectors = new UInt32[16,2];
-            //bool seedflag = false;
             bool xmlentry = false;
             bool seedEntry = false;
             
@@ -83,7 +79,7 @@ namespace test
                 XmlNode rom_xml;
                 if (xml)
                 {
-                    ssRanges.Load("ss.xml");
+                    ssRanges.Load(ssxml);
                     rom_xml = ssRanges.DocumentElement.SelectSingleNode(string.Format("rom[@name=\"{0}\"]", fileName));
                     if(rom_xml != null)
                     {
@@ -124,19 +120,18 @@ namespace test
                 }
                 
                     
-                //XmlDocument ssRanges = new XmlDocument();
                 if (!xml)
                 {
                     //create ss.xml
                     XmlElement root = ssRanges.DocumentElement;
                     XmlElement datafile = ssRanges.CreateElement("datafile");
                     ssRanges.AppendChild( datafile );
-                    ssRanges.Save( "ss.xml" );
+                    ssRanges.Save( ssxml );
                 }
                 
                 if (!seedEntry)
                 {
-                    ssRanges.Load("ss.xml");
+                    ssRanges.Load(ssxml);
                     rom_xml = ssRanges.DocumentElement.SelectSingleNode(string.Format("rom[@name=\"{0}\"]", fileName));
                     if (rom_xml == null)
                     {
@@ -177,7 +172,7 @@ namespace test
                     
                     else
                     {
-                        ssRanges.Load("ss.xml");
+                        ssRanges.Load(ssxml);
                         rom_xml = ssRanges.DocumentElement.SelectSingleNode(string.Format("rom[@name=\"{0}\"]", fileName));
                         if (seed != 0)
                         {
@@ -188,7 +183,7 @@ namespace test
                             rom_xml.Attributes["seed"].Value = "rc4";
                         }
                     }
-                    ssRanges.Save( "ss.xml" );
+                    ssRanges.Save( ssxml );
                 }
                 
             }
@@ -197,9 +192,11 @@ namespace test
             { 
                 using (BinaryReader br = new BinaryReader(new FileStream(fileName, FileMode.Open)))
                 {
-                    br.BaseStream.Position = 0x18300000;
+                    br.BaseStream.Position = GP_OFFSET;
                     seedflag = (br.ReadUInt32() == 1);
                     seed = br.ReadUInt32();
+                    br.ReadUInt32();
+                    br.ReadUInt64(); // Optimistic reserved space for 128bit rc4 key
                     rom_md5 = BitConverter.ToString(br.ReadBytes(16)).Replace("-","").ToLower();
                     if (br.ReadUInt32() == 16)
                     {
@@ -230,51 +227,30 @@ namespace test
             
             uint[,] dtemp = getDataArray(fileName);
             uint[,] dataranges = mergeArrays(dtemp, security_sectors);
-            
-            /*
-            Console.WriteLine("\nSS");
-            for (int i = 0; i < security_sectors.GetLength(0); i++)
-            {
-                Console.WriteLine(security_sectors[i, 0].ToString() + " - " + security_sectors[i, 1].ToString());
-            }            
-            Console.WriteLine("\nData");
-            for (int i = 0; i < dtemp.GetLength(0); i++)
-            {
-                Console.WriteLine(dtemp[i, 0].ToString() + " - " + dtemp[i, 1].ToString());
-            }            
-            Console.WriteLine("\nMerged");
-            for (int i = 0; i < dataranges.GetLength(0); i++)
-            {
-                Console.WriteLine(dataranges[i, 0].ToString() + " - " + dataranges[i, 1].ToString());
-            }
-            */
-            
+
             if (!scrubbed && !seedflag)
             {
                 seed = getPadSecCount(dataranges);  // seed = Sectorcount of padding sectors
-                //Console.WriteLine((seed*2048).ToString());
             }
             
             else if (scrubbed && !seedflag)
             {
                 using (BinaryReader br = new BinaryReader(new FileStream(fileName, FileMode.Open)))
                 {
-                    br.BaseStream.Position = 0x18300000;
+                    br.BaseStream.Position = GP_OFFSET;
                     br.ReadUInt32();
                     uint rc4headsec = br.ReadUInt32();
-                    long rc4head = (long)rc4headsec * 0x800;
+                    long rc4head = (long)rc4headsec * SECTOR_SIZE;
                     long rc4real = new System.IO.FileInfo(rc4file).Length;
                 
                     if (rc4head != rc4real)
                     {
                         Console.WriteLine("Filesize Mismatch for rc4 file!\nExpected: " + (rc4head).ToString() + " Bytes\nActual:   " + (rc4real).ToString() + " Bytes");
-                        Console.WriteLine("PadSec:   " + (getPadSecCount(dataranges)*0x800).ToString() + " Bytes");
                         Environment.Exit(0); 
                     }
                 }
             }
             
-            Environment.Exit(0);
             string fileNameOut = string.Empty;
             
             if(scrubbed)
@@ -301,25 +277,23 @@ namespace test
             Console.WriteLine("  => " + fileNameOut);
             
             
-
-            //BinaryWriter rc4o = new BinaryWriter(new FileStream(rc4file, FileMode.Create));
             using (BinaryReader br = new BinaryReader(new FileStream(fileName, FileMode.Open)))
             {
                 using (BinaryWriter bw = new BinaryWriter(new FileStream(fileNameOut, FileMode.OpenOrCreate)))
                 {
                     // Copy Video Partition
-                    while (br.BaseStream.Position < 0x18300000)
+                    while (br.BaseStream.Position < GP_OFFSET)
                     {
-                        byte[] tempBuffer = br.ReadBytes(2048);
+                        byte[] tempBuffer = br.ReadBytes(SECTOR_SIZE);
                         if (scrubbed)  // !scrubbed hash already calculated with getSS
                         {
-                            hash.TransformBlock(tempBuffer, 0, 2048, null, 0);
+                            hash.TransformBlock(tempBuffer, 0, SECTOR_SIZE, null, 0);
                         }
                         bw.Write(tempBuffer);
                     }
                     if (scrubbed)
                     {
-                        byte[] randomSector = new byte[2048];
+                        byte[] randomSector = new byte[SECTOR_SIZE];
                         BinaryWriter rs = new BinaryWriter(new MemoryStream(randomSector));
                         if (seedflag)
                         {
@@ -328,35 +302,35 @@ namespace test
                             uint c_t = 0;
                             Seed(seed, ref a_t, ref b_t, ref c_t);
                             
-                            for (int j = 0; j < 0x800; j += 2)
+                            for (int j = 0; j < SECTOR_SIZE; j += 2)
                             {
                                 UInt16 sample = (UInt16)(Value(ref a_t, ref b_t, ref c_t) >> 8);
                                 rs.Write(sample);
                             }
-                            hash.TransformBlock(randomSector, 0, 2048, null, 0);
+                            hash.TransformBlock(randomSector, 0, SECTOR_SIZE, null, 0);
                             
-                            br.ReadBytes(2048);
+                            br.ReadBytes(SECTOR_SIZE);
                             bw.Write(randomSector);
                             
                             rs.BaseStream.Position = 0;
-                            for (int j = 0; j < 0x800; j += 2)
+                            for (int j = 0; j < SECTOR_SIZE; j += 2)
                             {
                                 UInt16 sample = (UInt16)(Value(ref a_t, ref b_t, ref c_t) >> 8);
                                 rs.Write(sample);
                             }
                             
                             int currentrange = 0;
-                            //while (br.BaseStream.Position < 0x1F400000)
+
                             while (br.BaseStream.Position != br.BaseStream.Length)
                             {
-                                Int64 sector_n = br.BaseStream.Position / 2048;
-                                byte[] tempBuffer = br.ReadBytes(2048);
+                                Int64 sector_n = br.BaseStream.Position / SECTOR_SIZE;
+                                byte[] tempBuffer = br.ReadBytes(SECTOR_SIZE);
 
                                 bool dataArea = ( (sector_n >= dataranges[currentrange,0]) && (sector_n <= dataranges[currentrange,1])); // data area?
 
                                 if (dataArea)
                                 {
-                                    hash.TransformBlock(tempBuffer, 0, 2048, null, 0);
+                                    hash.TransformBlock(tempBuffer, 0, SECTOR_SIZE, null, 0);
                                     bw.Write(tempBuffer);
                                     
                                     while (sector_n >= dataranges[currentrange,1]) //next range and skip nested ranges
@@ -375,7 +349,7 @@ namespace test
                                     if (checkSecRange(sector_n, security_sectors))
                                     {
                                         rs.BaseStream.Position = 0;
-                                        for (int j = 0; j < 0x800; j += 2)
+                                        for (int j = 0; j < SECTOR_SIZE; j += 2)
                                         {
                                             UInt16 sample = (UInt16)(Value(ref a_t, ref b_t, ref c_t) >> 8);
                                             rs.Write(sample);
@@ -384,11 +358,11 @@ namespace test
                                 }
                                 else
                                 {
-                                    hash.TransformBlock(randomSector, 0, 2048, null, 0);
+                                    hash.TransformBlock(randomSector, 0, SECTOR_SIZE, null, 0);
                                     bw.Write(randomSector);
                                     
                                     rs.BaseStream.Position = 0;
-                                    for (int j = 0; j < 0x800; j += 2)
+                                    for (int j = 0; j < SECTOR_SIZE; j += 2)
                                     {
                                         UInt16 sample = (UInt16)(Value(ref a_t, ref b_t, ref c_t) >> 8);
                                         rs.Write(sample);
@@ -402,25 +376,25 @@ namespace test
                         {
                             using (BinaryReader rc4i = new BinaryReader(new FileStream(rc4file, FileMode.Open)))
                             {
-                                randomSector = rc4i.ReadBytes(2048);
-                                hash.TransformBlock(randomSector, 0, 2048, null, 0);
+                                randomSector = rc4i.ReadBytes(SECTOR_SIZE);
+                                hash.TransformBlock(randomSector, 0, SECTOR_SIZE, null, 0);
                                 
-                                br.ReadBytes(2048);
+                                br.ReadBytes(SECTOR_SIZE);
                                 bw.Write(randomSector);
                                 
-                                randomSector = rc4i.ReadBytes(2048);
+                                randomSector = rc4i.ReadBytes(SECTOR_SIZE);
                                 int currentrange = 0;
-                                //while (br.BaseStream.Position < 0x1F400000)
+                                
                                 while (br.BaseStream.Position != br.BaseStream.Length)
                                 {
-                                    Int64 sector_n = br.BaseStream.Position / 2048;
-                                    byte[] tempBuffer = br.ReadBytes(2048);
+                                    Int64 sector_n = br.BaseStream.Position / SECTOR_SIZE;
+                                    byte[] tempBuffer = br.ReadBytes(SECTOR_SIZE);
 
                                     bool dataArea = ( (sector_n >= dataranges[currentrange,0]) && (sector_n <= dataranges[currentrange,1])); // data area?
 
                                     if (dataArea)
                                     {
-                                        hash.TransformBlock(tempBuffer, 0, 2048, null, 0);
+                                        hash.TransformBlock(tempBuffer, 0, SECTOR_SIZE, null, 0);
                                         bw.Write(tempBuffer);
                                         
                                         while (sector_n >= dataranges[currentrange,1]) //next range and skip nested ranges
@@ -438,9 +412,9 @@ namespace test
                                     }
                                     else
                                     {
-                                        hash.TransformBlock(randomSector, 0, 2048, null, 0);
+                                        hash.TransformBlock(randomSector, 0, SECTOR_SIZE, null, 0);
                                         bw.Write(randomSector);
-                                        randomSector = rc4i.ReadBytes(2048);
+                                        randomSector = rc4i.ReadBytes(SECTOR_SIZE);
                                     }
                                 }
                             }
@@ -462,7 +436,7 @@ namespace test
                         using (BinaryWriter rc4o = new BinaryWriter(new FileStream(rc4file, FileMode.OpenOrCreate)))
                         {
                             // write info to first junk sector
-                            byte[] tempBuffer = br.ReadBytes(2048);
+                            byte[] tempBuffer = br.ReadBytes(SECTOR_SIZE);
 
                             if (seedflag)
                             {
@@ -473,7 +447,10 @@ namespace test
                             {
                                 bw.Write(BitConverter.GetBytes(0));
                             }
-                            bw.Write(BitConverter.GetBytes(seed));
+                            bw.Write(BitConverter.GetBytes(seed));  // always 32bit
+                            bw.Write(BitConverter.GetBytes(0));
+                            bw.Write(BitConverter.GetBytes(0));
+                            bw.Write(BitConverter.GetBytes(0));  // space for 128 bit rc4 key (3x32 bit)
                             bw.Write(StringToByteArray(rom_md5));
                             bw.Write(BitConverter.GetBytes(16)); // SS count
                             for (int k = 0; k < 16; k++)  // always 16 Security Secotrs
@@ -494,11 +471,11 @@ namespace test
                             
                             
                             int currentrange = 0;
-                            //while (br.BaseStream.Position < 0x1F400000)
+                            
                             while (br.BaseStream.Position != br.BaseStream.Length)
                             {
-                                Int64 sector_n = br.BaseStream.Position / 2048;
-                                tempBuffer = br.ReadBytes(2048);
+                                Int64 sector_n = br.BaseStream.Position / SECTOR_SIZE;
+                                tempBuffer = br.ReadBytes(SECTOR_SIZE);
 
                                 bool dataArea = ( (sector_n >= dataranges[currentrange,0]) && (sector_n <= dataranges[currentrange,1])); // data area?
 
@@ -534,6 +511,19 @@ namespace test
                         {
                             File.Delete(rc4file);
                         }
+                        
+                        if (!seedflag)
+                        {
+                            long rc4head = (long)getPadSecCount(dataranges) * SECTOR_SIZE;
+                            long rc4real = new System.IO.FileInfo(rc4file).Length;
+                        
+                            if (rc4head != rc4real)
+                            {
+                                Console.WriteLine("Error. Filesize Mismatch for rc4 file!\nExpected: " + (rc4head).ToString() + " Bytes\nActual:   " + (rc4real).ToString() + " Bytes");
+                                Environment.Exit(0); 
+                            }
+                        }
+                        
                         Console.WriteLine("All done!");
                     }
                 }
@@ -574,8 +564,8 @@ namespace test
         private static uint bruteForceSeed(string testFile)
         {
             BinaryReader br = new BinaryReader(new FileStream(testFile, FileMode.Open));
-            br.BaseStream.Position = 0x18300000;
-            byte[] sector = br.ReadBytes(2048);
+            br.BaseStream.Position = GP_OFFSET;
+            byte[] sector = br.ReadBytes(SECTOR_SIZE);
             br.Close();
 
             var t1 = DateTime.Now;
@@ -591,7 +581,7 @@ namespace test
                 Seed((uint)i, ref a_t, ref b_t, ref c_t);
                 bool found = true;
 
-                for (int j = 0; j < 0x800; j += 2)
+                for (int j = 0; j < SECTOR_SIZE; j += 2)
                 {
                     UInt16 sampleGenerated = (UInt16)(Value(ref a_t, ref b_t, ref c_t) >> 8);
                     byte low = (byte)(sampleGenerated & 0xff);
@@ -634,13 +624,13 @@ namespace test
         }
         private static bool mode(string fileName, byte[] junk)
         {
-            byte[] buffer = new byte[2048];
+            byte[] buffer = new byte[SECTOR_SIZE];
             using (BinaryReader br = new BinaryReader(new FileStream(fileName, FileMode.Open)))
             {
-                br.BaseStream.Position = 0x18300000;
-                buffer = br.ReadBytes(2048);
+                br.BaseStream.Position = GP_OFFSET;
+                buffer = br.ReadBytes(SECTOR_SIZE);
             }
-            for (int i = 1024; i < 2048; i++)
+            for (int i = 1024; i < SECTOR_SIZE; i++)
             {
                 if (buffer[i] != junk[i]) return false;
             }
@@ -649,7 +639,7 @@ namespace test
 
         private static bool CompareArrays(byte[] buffer, byte[] randomSector)
         {
-            for (int i = 0; i < 2048; i++)
+            for (int i = 0; i < SECTOR_SIZE; i++)
             {
                 if (buffer[i] != randomSector[i]) return false;
             }
@@ -658,7 +648,7 @@ namespace test
 
         private static byte[] JunkBlock()
         {
-            byte[] junkBuffer = new byte[2048];
+            byte[] junkBuffer = new byte[SECTOR_SIZE];
 
             byte[] junkChain = Encoding.ASCII.GetBytes("JUNK");
 
@@ -675,7 +665,7 @@ namespace test
         {
             List<uint> list = new List<uint>();
             uint[,] temp = new uint[16, 2];
-            byte[] blank = new byte[2048]; // initial value is 0x00
+            byte[] blank = new byte[SECTOR_SIZE]; // initial value is 0x00
             bool flag = false;
             uint start = 0;
             uint end = 0;
@@ -686,14 +676,14 @@ namespace test
             {
                 while (sectorcount < 0x30600)
                 {
-                    byte[] isosector = br.ReadBytes(2048);
-                    hash.TransformBlock(isosector, 0, 2048, null, 0);
+                    byte[] isosector = br.ReadBytes(SECTOR_SIZE);
+                    hash.TransformBlock(isosector, 0, SECTOR_SIZE, null, 0);
                     sectorcount ++;
                 }
                 while (sectorcount <= 0x376160) // first sector of game partition with zeropadded sectors at the end
                 {
-                    byte[] isosector = br.ReadBytes(2048);
-                    hash.TransformBlock(isosector, 0, 2048, null, 0);
+                    byte[] isosector = br.ReadBytes(SECTOR_SIZE);
+                    hash.TransformBlock(isosector, 0, SECTOR_SIZE, null, 0);
                     if (CompareArrays(blank, isosector) && !flag)
                     {
                         start = sectorcount;
@@ -722,8 +712,8 @@ namespace test
                 
                 while (br.BaseStream.Position != br.BaseStream.Length)
                 {
-                    byte[] isosector = br.ReadBytes(2048);
-                    hash.TransformBlock(isosector, 0, 2048, null, 0);
+                    byte[] isosector = br.ReadBytes(SECTOR_SIZE);
+                    hash.TransformBlock(isosector, 0, SECTOR_SIZE, null, 0);
                 }
                 
                 hash.TransformFinalBlock(new byte[0], 0, 0);
@@ -739,12 +729,12 @@ namespace test
             return new Tuple<uint[,], string>(temp, file_md5);
         }
         
-        private static void extractSearchTree(BinaryReader br, uint dir_offset, uint dir_size, uint offset, long startoffset, List<uint> datasectors)
+        private static void extractSearchTree(BinaryReader br, long dir_offset, uint dir_size, uint offset, long startoffset, List<uint> datasectors)
         {
             long this_offset = startoffset + dir_offset + offset * 4;
-            // uses trick for integer division ceiling. ceil(i/j) = (i + j - 1) / j
-            //Console.WriteLine( (this_offset/0x800).ToString() + " - " +  ((this_offset/0x800) + ((dir_size - (offset * 4) + 0x800 - 1)/0x800)).ToString());
-            for (long i = this_offset/0x800; i < (this_offset/0x800) + ((dir_size - (offset * 4) + 0x800 - 1)/0x800); i++)
+
+            //integer division ceiling. ceil(i/j) = (i + j - 1) / j
+            for (long i = this_offset/SECTOR_SIZE; i < (this_offset/SECTOR_SIZE) + ((dir_size - (offset * 4) + SECTOR_SIZE - 1)/SECTOR_SIZE); i++)
             {
                 datasectors.Add((uint)i);
             }
@@ -762,20 +752,17 @@ namespace test
             Byte attrib = br.ReadByte();
             Byte name_length = br.ReadByte();
 
-            uint data_offset = sector * 0x800;
+            long data_offset = (long)sector * SECTOR_SIZE;
             offset += 14;
             
-            //read filename for debug
             byte[] filenameb = br.ReadBytes(name_length);
             string filename = System.Text.Encoding.ASCII.GetString(filenameb);
-            //Console.WriteLine(filename);
-            
+
             if (left == 0xFFFF)
             {
                 return;
             }
 
-            // Handle left children (or lack thereof)
             if (left != 0)
             {
                 extractSearchTree(br, dir_offset, dir_size, left, startoffset, datasectors);
@@ -791,14 +778,12 @@ namespace test
 
             else //file
             {
-                //Console.WriteLine( ((startoffset + data_offset)/0x800).ToString() + " - " + ((startoffset + data_offset)/0x800 + ((size + 0x800 - 1) / 0x800)).ToString() );
-                for (long i = (startoffset + data_offset)/0x800; i < (startoffset + data_offset)/0x800 + ((size + 0x800 - 1) / 0x800); i++)
+                for (long i = (startoffset + data_offset)/SECTOR_SIZE; i < (startoffset + data_offset)/SECTOR_SIZE + ((size + SECTOR_SIZE - 1) / SECTOR_SIZE); i++)
                 {
                     datasectors.Add((uint)i);
                 }
             }
             
-            // Handle right children (or lack thereof)
             if (right != 0)
             {
                 extractSearchTree(br, dir_offset, dir_size, right, startoffset, datasectors);
@@ -807,13 +792,13 @@ namespace test
         
         private static void extractImage(BinaryReader br, uint startoffset, List<uint> datasectors)
         {
-            uint headersec = (startoffset + 0x10000) / 0x800;
+            uint headersec = (startoffset + 0x10000) / SECTOR_SIZE;
             datasectors.Add(headersec);
             datasectors.Add(headersec+1);
             br.BaseStream.Position = startoffset + 0x10000 + 20; // startoffset + XISO_HEADER_OFFSET + XISO_HEADER_DATA_LENGTH
             uint root_sector = br.ReadUInt32();
             uint root_size = br.ReadUInt32();
-            uint root_offset = root_sector * 0x800;
+            long root_offset = (long)root_sector * SECTOR_SIZE;
             extractSearchTree(br, root_offset, root_size, 0, startoffset, datasectors);
         }
         
@@ -850,14 +835,7 @@ namespace test
             uint lastsector = 0x3A4D4F; // (0x1D26A8000 / 0x800) -1;  last sector. Filesize / sectorsize -1
             startlist.Add(zeropadbeginsector);
             endlist.Add(lastsector);
-            /*
-            Console.WriteLine("TOTAL RANGES: " + startlist.Count.ToString() + " , " + endlist.Count.ToString());
-            for (int i = 0; i < startlist.Count; i++)
-            {
-                Console.WriteLine(startlist[i].ToString() + " - " + endlist[i].ToString());
-            }
-            Console.WriteLine();
-            */
+
             uint[,] secranges = new uint[startlist.Count, 2];
             for (int i = 0; i < startlist.Count; i++)
             {
@@ -872,7 +850,7 @@ namespace test
             List<uint> datasectors = new List<uint>();
             using (BinaryReader br = new BinaryReader(new FileStream(file, FileMode.Open)))
             {
-                extractImage(br, 0x18300000, datasectors);
+                extractImage(br, GP_OFFSET, datasectors);
             }
             return parseArray(datasectors);
         }
@@ -885,16 +863,15 @@ namespace test
                               .ToArray();
         }
         
+        
         private static uint[,] mergeArrays(uint[,] dtemp, uint[,] ss)
         {
             uint[,] temp = new uint[dtemp.GetLength(0) + ss.GetLength(0), 2];
-
             int countd = 0;
             int counts = 0;
             for (int i = 0; i < temp.GetLength(0) -1; i++)
             {
- 
-                if (dtemp[countd, 0] <= ss[counts, 0])
+                if ( (dtemp[countd, 0] <= ss[((counts == 16) ? 15 : counts), 0]) || (counts == 16))
                 {
                     
                     temp[i,0] = dtemp[countd,0];
@@ -907,9 +884,10 @@ namespace test
                     temp[i,0] = ss[counts,0];
                     temp[i,1] = ss[counts,1];
                     counts ++;
+ 
+
                 }
             }
-            // add last element
             if (counts == ss.GetLength(0))
             {
                 temp[temp.GetLength(0) - 1,0] = dtemp[countd,0];
@@ -922,48 +900,28 @@ namespace test
             }
             return temp;
         }
-        
+
         private static uint getPadSecCount(uint[,] dataranges)
         {
-            //remove nested ranges
-            uint padsecs = 0;
-            uint largest = 0;
+            uint datsecs = 0;
+            uint high = 0;
             for (int i = 0; i < dataranges.GetLength(0); i++)
             {
-                if (largest < dataranges[i,1])
+                if (dataranges[i,1] > high)  // not nested
                 {
-                    largest = dataranges[i,1];
-                }
-                if (i != (dataranges.GetLength(0) -1))
-                {
-                    if (dataranges[i+1,0] > dataranges[i,1]) // next ranges outside of current range
+                    if (dataranges[i,0] >= high) //not intersecting
                     {
-                        if (dataranges[i,1] == largest) //if not nested
-                        {
-                            padsecs = padsecs + (dataranges[i,1] - dataranges[i,0] + 1);
-                        }
+                        datsecs = datsecs + (dataranges[i,1] - dataranges[i,0] + 1);
                     }
-                    else if ( (dataranges[i+1,0] < dataranges[i,1]) && dataranges[i+1,1] < dataranges[i,1] ) //next range completely inside current range
+                    else //intersecting (unknown if case exists)
                     {
-                        padsecs = padsecs + (dataranges[i,1] - dataranges[i,0] + 1);
+                        datsecs = datsecs + (dataranges[i,1] - high);
                     }
-                    else if ( (dataranges[i+1,0] < dataranges[i,1]) && dataranges[i+1,1] > dataranges[i,1] ) // next range starting inside and ending outside current range
-                    {
-                        padsecs = padsecs + (dataranges[i+1,1] - dataranges[i,0] + 1);
-                        i++;
-                    }
-                    else
-                    {
-                        Console.WriteLine("Unhandled Case!");
-                    }
-                }
-                else
-                {
-                    padsecs = padsecs + (dataranges[i,1] - dataranges[i,0] + 1);
+                    high = dataranges[i,1];
                 }
             }
-            return (0x3A4D50 - 0x30600 - padsecs);
-        }
+            return (0x3A4D50 - 0x30600 - datsecs);  //total sectors of redump image - sectors of videopartition - datsecs
+        }        
         
         private static int getVersion(string fileName)
         {
