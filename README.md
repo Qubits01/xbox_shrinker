@@ -84,7 +84,8 @@ To create and use scrubbed xiso images, please refer to the following diagram:
 <p align="center">
 <img src="pics/xiso.png">
 </p>
-For conversion you can use [this](https://github.com/Qubits01/redump2xiso).
+For conversion you can use [this tool](https://github.com/Qubits01/redump2xiso).  
+[this tool](https://github.com/LedZeppelin68/dvd-shrinker)
 
 # Bug report
 The current version has been tested successfully with almost 400 different image files.  
