@@ -69,14 +69,14 @@ To be able to unscrub an image without the need for external files or informatio
 The information is stored at the beginning of the first sector of the game partition at offset `0x18300000`. This sector is *always* a padding sector.  
 Offsets in the table below are relative to the beginning of the game partition offset.
 
-| Offset | Type      | Decription                                                  |
-|--------|-----------|-------------------------------------------------------------|
-| 0      | uint32    | flag for seed (1) or rc4 (0)                                |
-| 4      | uint64    | seed value or sector count of rc4 file                      |
-| 12     | uint64    | space for possible future storage of rc4 seed key           |
-| 20     | byte\[16\]| MD5 hash of original file                                   |
-| 36     | uint32    | Count of security sectors (always 16 for OG XBOX)           |
-| 40     | 32xuint32 | start- and endsector for each security sector range         |
+| Offset | Type       | Decription                                                  |
+|--------|------------|-------------------------------------------------------------|
+| 0      | uint32     | flag for seed (1) or rc4 (0)                                |
+| 4      | uint64     | seed value or sector count of rc4 file                      |
+| 12     | uint64     | space for possible future storage of rc4 seed key           |
+| 20     | byte\[16\] | MD5 hash of original file                                   |
+| 36     | uint32     | Count of security sectors (always 16 for OG XBOX)           |
+| 40     | 32x uint32 | start- and endsector for each security sector range         |
 
 # xiso support  
 This program supports redump-style isos only. The main reason is the md5 checksum stored in the scrubbed file that would be different for a file in xiso format.
