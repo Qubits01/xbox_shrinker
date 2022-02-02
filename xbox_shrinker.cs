@@ -9,6 +9,12 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
+/*
+
+  todo: refactor mergearrays to create disjunct ranges (see padseccount) for cleaner code. write loop of iso can be simplified
+  
+*/
+
 
 class xbox_shrinker
 {
@@ -23,6 +29,7 @@ class xbox_shrinker
         0xA53F1D11,
         0xB154430F
     };
+    static bool debug = false;
     const uint GP_OFFSET = 0x18300000;
     const int SECTOR_SIZE = 0x800;
     
@@ -30,12 +37,16 @@ class xbox_shrinker
     {
         if (args.Length == 0)
         {
-            Console.WriteLine("Usage: xbox_srinker.exe <isofile> [<rc4file>]");
+            Console.WriteLine("Usage: xbox_shrinker.exe <isofile> [<rc4file>]");
             return;
         }
-
+        /*
+        test(args[0]);
+        Environment.Exit(0);
+        */
         byte[] junk = JunkBlock();
-        string fileName = Path.GetFileName(args[0]);
+        string fileName = Path.GetFullPath(args[0]);
+        Console.WriteLine(fileName);
         if (!File.Exists(fileName))
         {
             Console.WriteLine("Error. File not found: " + fileName);
@@ -55,12 +66,13 @@ class xbox_shrinker
         bool seedflag = (version <= 4808);  //Blade II (USA)
         string ssxml = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ss.xml");
         bool xml = File.Exists(ssxml);
+        Console.WriteLine(xml);
+        string rc4file = Path.GetFullPath(args[0].Replace(".dec", ""));
         
-        string rc4file = Path.GetFileName(args[0].Replace(".dec", ""));
         rc4file = rc4file.Replace(".iso", ".rc4");
         if (args.Length >= 2)
         {
-            rc4file = Path.GetFileName(args[1]);
+            rc4file = Path.GetFullPath(args[1]);
         }
 
         bool scrubbed = mode(fileName, junk);
@@ -68,6 +80,7 @@ class xbox_shrinker
         UInt32 seed = 0;
         string rom_md5 = "";
         UInt32[,] security_sectors = new UInt32[16,2];
+        //bool seedflag = false;
         bool xmlentry = false;
         bool seedEntry = false;
         
@@ -78,7 +91,7 @@ class xbox_shrinker
             if (xml)
             {
                 ssRanges.Load(ssxml);
-                rom_xml = ssRanges.DocumentElement.SelectSingleNode(string.Format("rom[@name=\"{0}\"]", fileName));
+                rom_xml = ssRanges.DocumentElement.SelectSingleNode(string.Format("rom[@name=\"{0}\"]", Path.GetFileName(fileName)));
                 if(rom_xml != null)
                 {
                     xmlentry = true;
@@ -117,7 +130,7 @@ class xbox_shrinker
                 }
             }
             
-                
+            
             if (!xml)
             {
                 //create ss.xml
@@ -130,7 +143,7 @@ class xbox_shrinker
             if (!seedEntry)
             {
                 ssRanges.Load(ssxml);
-                rom_xml = ssRanges.DocumentElement.SelectSingleNode(string.Format("rom[@name=\"{0}\"]", fileName));
+                rom_xml = ssRanges.DocumentElement.SelectSingleNode(string.Format("rom[@name=\"{0}\"]", Path.GetFileName(fileName)));
                 if (rom_xml == null)
                 {
                     //make new entry
@@ -138,7 +151,7 @@ class xbox_shrinker
                     XmlElement newrom = ssRanges.CreateElement("rom");
                     
                     XmlAttribute xmlname = ssRanges.CreateAttribute("name");
-                    xmlname.Value = fileName;
+                    xmlname.Value = Path.GetFileName(fileName);
                     newrom.Attributes.Append(xmlname);
                     
                     XmlAttribute xmlmd5 = ssRanges.CreateAttribute("md5");
@@ -171,7 +184,7 @@ class xbox_shrinker
                 else
                 {
                     ssRanges.Load(ssxml);
-                    rom_xml = ssRanges.DocumentElement.SelectSingleNode(string.Format("rom[@name=\"{0}\"]", fileName));
+                    rom_xml = ssRanges.DocumentElement.SelectSingleNode(string.Format("rom[@name=\"{0}\"]", Path.GetFileName(fileName)));
                     if (seed != 0)
                     {
                         rom_xml.Attributes["seed"].Value = string.Format("{0:x8}", seed);
@@ -225,10 +238,33 @@ class xbox_shrinker
         
         uint[,] dtemp = getDataArray(fileName);
         uint[,] dataranges = mergeArrays(dtemp, security_sectors);
-
+        
+        /*
+        //uint[,] dataranges = new uint[12,2];
+        Console.WriteLine("\nSS");
+        for (int i = 0; i < security_sectors.GetLength(0); i++)
+        {
+            Console.WriteLine(security_sectors[i, 0].ToString() + " - " + security_sectors[i, 1].ToString());
+        }            
+        Console.WriteLine("\nData");
+        for (int i = 0; i < dtemp.GetLength(0); i++)
+        {
+            Console.WriteLine(dtemp[i, 0].ToString() + " - " + dtemp[i, 1].ToString());
+        }
+        
+                   
+        Console.WriteLine("\nMerged");
+        for (int i = 0; i < dataranges.GetLength(0); i++)
+        {
+            Console.WriteLine(dataranges[i, 0].ToString() + " - " + dataranges[i, 1].ToString());
+        }
+        */
+        //Environment.Exit(0);
+        
         if (!scrubbed && !seedflag)
         {
             seed = getPadSecCount(dataranges);  // seed = Sectorcount of padding sectors
+            //Console.WriteLine((seed*2048).ToString());
         }
         
         else if (scrubbed && !seedflag)
@@ -244,11 +280,13 @@ class xbox_shrinker
                 if (rc4head != rc4real)
                 {
                     Console.WriteLine("Filesize Mismatch for rc4 file!\nExpected: " + (rc4head).ToString() + " Bytes\nActual:   " + (rc4real).ToString() + " Bytes");
+                    //Console.WriteLine("PadSec:   " + (getPadSecCount(dataranges)*0x800).ToString() + " Bytes");
                     Environment.Exit(0); 
                 }
             }
         }
         
+        //Environment.Exit(0);
         string fileNameOut = string.Empty;
         
         if(scrubbed)
@@ -318,7 +356,7 @@ class xbox_shrinker
                         }
                         
                         int currentrange = 0;
-
+                        //while (br.BaseStream.Position < 0x1F400000)
                         while (br.BaseStream.Position != br.BaseStream.Length)
                         {
                             Int64 sector_n = br.BaseStream.Position / SECTOR_SIZE;
@@ -382,7 +420,7 @@ class xbox_shrinker
                             
                             randomSector = rc4i.ReadBytes(SECTOR_SIZE);
                             int currentrange = 0;
-                            
+                            //while (br.BaseStream.Position < 0x1F400000)
                             while (br.BaseStream.Position != br.BaseStream.Length)
                             {
                                 Int64 sector_n = br.BaseStream.Position / SECTOR_SIZE;
@@ -469,7 +507,7 @@ class xbox_shrinker
                         
                         
                         int currentrange = 0;
-                        
+                        //while (br.BaseStream.Position < 0x1F400000)
                         while (br.BaseStream.Position != br.BaseStream.Length)
                         {
                             Int64 sector_n = br.BaseStream.Position / SECTOR_SIZE;
@@ -730,8 +768,12 @@ class xbox_shrinker
     private static void extractSearchTree(BinaryReader br, long dir_offset, uint dir_size, uint offset, long startoffset, List<uint> datasectors)
     {
         long this_offset = startoffset + dir_offset + offset * 4;
-
-        //integer division ceiling. ceil(i/j) = (i + j - 1) / j
+        if (debug)
+        {
+            Console.WriteLine("  this_offset: " + this_offset.ToString() + " startoffset " + startoffset.ToString() + " dir_offset " + dir_offset.ToString() + " offset*4 " + (offset * 4).ToString());
+        }
+        // integer division ceiling. ceil(i/j) = (i + j - 1) / j
+        //Console.WriteLine( (this_offset/0x800).ToString() + " - " +  ((this_offset/0x800) + ((dir_size - (offset * 4) + 0x800 - 1)/0x800)).ToString());
         for (long i = this_offset/SECTOR_SIZE; i < (this_offset/SECTOR_SIZE) + ((dir_size - (offset * 4) + SECTOR_SIZE - 1)/SECTOR_SIZE); i++)
         {
             datasectors.Add((uint)i);
@@ -753,14 +795,31 @@ class xbox_shrinker
         long data_offset = (long)sector * SECTOR_SIZE;
         offset += 14;
         
+        //read filename for debug
         byte[] filenameb = br.ReadBytes(name_length);
         string filename = System.Text.Encoding.ASCII.GetString(filenameb);
-
+        /*
+        if (filename == "Movies"){
+            debug = true;
+        }
+        else if (filename == "ICEBERG.ark")
+        {
+            debug = false;
+            Environment.Exit(0);
+        }
+        */
+        if (debug)
+        {
+            Console.WriteLine("name " + filename + " left " + left.ToString() + " right " + right.ToString() + " sector " + sector.ToString() + " Size "+ size.ToString() + " attrib " + attrib.ToString() + " namelength " + name_length.ToString());
+        }
+        //Console.WriteLine(filename);
+        
         if (left == 0xFFFF)
         {
             return;
         }
 
+        // Handle left children
         if (left != 0)
         {
             extractSearchTree(br, dir_offset, dir_size, left, startoffset, datasectors);
@@ -770,18 +829,24 @@ class xbox_shrinker
         {
             if (size > 0)
             {
+                if (debug)
+                {
+                    Console.WriteLine("  dir called");
+                }
                 extractSearchTree(br, data_offset, size, 0, startoffset, datasectors);
             }
         }
 
         else //file
         {
+            //Console.WriteLine( ((startoffset + data_offset)/0x800).ToString() + " - " + ((startoffset + data_offset)/0x800 + ((size + 0x800 - 1) / 0x800)).ToString() );
             for (long i = (startoffset + data_offset)/SECTOR_SIZE; i < (startoffset + data_offset)/SECTOR_SIZE + ((size + SECTOR_SIZE - 1) / SECTOR_SIZE); i++)
             {
                 datasectors.Add((uint)i);
             }
         }
         
+        // Handle right children
         if (right != 0)
         {
             extractSearchTree(br, dir_offset, dir_size, right, startoffset, datasectors);
@@ -833,7 +898,14 @@ class xbox_shrinker
         uint lastsector = 0x3A4D4F; // (0x1D26A8000 / 0x800) -1;  last sector. Filesize / sectorsize -1
         startlist.Add(zeropadbeginsector);
         endlist.Add(lastsector);
-
+        /*
+        Console.WriteLine("TOTAL RANGES: " + startlist.Count.ToString() + " , " + endlist.Count.ToString());
+        for (int i = 0; i < startlist.Count; i++)
+        {
+            Console.WriteLine(startlist[i].ToString() + " - " + endlist[i].ToString());
+        }
+        Console.WriteLine();
+        */
         uint[,] secranges = new uint[startlist.Count, 2];
         for (int i = 0; i < startlist.Count; i++)
         {
@@ -864,11 +936,14 @@ class xbox_shrinker
     
     private static uint[,] mergeArrays(uint[,] dtemp, uint[,] ss)
     {
+        //bool ssend = false;
         uint[,] temp = new uint[dtemp.GetLength(0) + ss.GetLength(0), 2];
+        //Console.WriteLine("dlen:" + dtemp.GetLength(0).ToString() + "  slen:" + ss.GetLength(0).ToString() + "  sum:" + (dtemp.GetLength(0) + ss.GetLength(0)).ToString());
         int countd = 0;
         int counts = 0;
         for (int i = 0; i < temp.GetLength(0) -1; i++)
         {
+            //Console.WriteLine("i:" + i.ToString() + "  d:" + countd.ToString() + "  s:" + ((counts == 16) ? 15 : counts).ToString());
             if ( (dtemp[countd, 0] <= ss[((counts == 16) ? 15 : counts), 0]) || (counts == 16))
             {
                 
@@ -886,6 +961,9 @@ class xbox_shrinker
 
             }
         }
+        // add last element
+        //Console.WriteLine("  d:" + countd.ToString() + "  s:" + counts.ToString());
+        //Console.WriteLine("counts==ss:" + (counts == ss.GetLength(0)).ToString() + "  countd==dtemp:" + (countd == dtemp.GetLength(0)).ToString());
         if (counts == ss.GetLength(0))
         {
             temp[temp.GetLength(0) - 1,0] = dtemp[countd,0];
@@ -898,6 +976,7 @@ class xbox_shrinker
         }
         return temp;
     }
+    
 
     private static uint getPadSecCount(uint[,] dataranges)
     {
