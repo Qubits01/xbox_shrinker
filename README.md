@@ -1,12 +1,12 @@
 # xbox_shrinker
-This program will remove (scrub) the random padding found in (OG) xbox iso files.  
+This program will overwrite (scrub) the random padding found in (OG) xbox iso files with a regular pattern making them highly compressable.  
 The iso files need to be in redump format.
 The scrubbed iso is still fully functional and can be used in emulators etc.  
-Compressed scrubbed isos are usually several GB smaller than the unscrubbed compressed counterparts.  
+The uncompressed size will stay the same but compressed scrubbed isos are usually several GB smaller than the unscrubbed compressed counterparts.  
 The program also supports unscrubbing of the iso and reconstruction of the original file.
 
 # Credits
-* [LedZeppelin68](https://github.com/LedZeppelin68/dvd-shrinker) for his dvd_shrinker program. This is actually a (almost) completely rewriten version of his program. What basically remained in this code is his excellent multi-core implementation of the seed brute-forcer.
+* [LedZeppelin68](https://github.com/LedZeppelin68/dvd-shrinker) for his dvd_shrinker program. This is actually a (almost) completely rewritten version of his program. What basically remained in this code is his excellent multi-core implementation of the seed brute-forcer.
 * [XboxDev](https://github.com/XboxDev/extract-xiso) for extract_xiso. Parts were used (but completely rewritten) for the analysis of the iso layout. 
 
 # On the random padding
