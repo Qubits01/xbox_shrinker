@@ -17,7 +17,7 @@ Early xbox games used a (proprietary) stream algorithm, that uses a 32-Bit seed.
 
 # Handling of rc4 stream games
 
-For games that use the rc4 algorithm for padding, the random stream is separated from the iso and saved to a .rc4 file. This file is needed if you want to reconstruct the scrubbed iso to the original iso.  
+For games that use the rc4 algorithm for padding, the random stream can optionally be separated from the iso and saved to a .rc4 file. This file is needed if you want to reconstruct the scrubbed iso to the original iso.  
 The idea is to store the rc4 stream files to a (maybe less expensive) cold storate and keep the scrubbed isos for everyday use.  
 For games that use the proprietary Microsoft algorithm, no rc4 stream file is created. Reconstruction is possible with the 32-Bit seed.
 
