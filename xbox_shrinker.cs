@@ -46,7 +46,7 @@ class xbox_shrinker
         */
         byte[] junk = JunkBlock();
         string fileName = Path.GetFullPath(args[0]);
-        Console.WriteLine(fileName);
+        //Console.WriteLine(fileName);
         if (!File.Exists(fileName))
         {
             Console.WriteLine("Error. File not found: " + fileName);
@@ -66,7 +66,7 @@ class xbox_shrinker
         bool seedflag = (version <= 4808);  //Blade II (USA)
         string ssxml = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ss.xml");
         bool xml = File.Exists(ssxml);
-        Console.WriteLine(xml);
+        //Console.WriteLine(xml);
         string rc4file = Path.GetFullPath(args[0].Replace(".dec", ""));
         
         rc4file = rc4file.Replace(".iso", ".rc4");
@@ -125,8 +125,16 @@ class xbox_shrinker
                 
                 else
                 {
-                    Console.WriteLine("Error. Brute-Force Failed!");
-                    Environment.Exit(0);
+                    if ((version >= 4721) && (version < 5000))
+                    {
+                        Console.WriteLine("Brute-Force Failed for Version " + version.ToString() + ". Assuming rc4 algo.");
+                        seedflag = false;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Error. Brute-Force Failed!");
+                        Environment.Exit(0);
+                    }
                 }
             }
             
