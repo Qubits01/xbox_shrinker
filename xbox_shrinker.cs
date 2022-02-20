@@ -58,12 +58,12 @@ class xbox_shrinker
             Console.WriteLine("Error. Invalid XBOX iso (maybe not in redump format?)");
             Environment.Exit(0);
         }
-        else if ((version > 4808) && (version < 4831))
+        else if ((version > 4808) && (version < 4830))
         {
             Console.WriteLine("Unknown Version: " + version.ToString());
             Environment.Exit(0);
         }
-        bool seedflag = (version <= 4808);  //Blade II (USA)
+        bool seedflag = (version <= 4830);  //4808 Blade II (USA), 4830 NFL Fever 2003 (USA) (Beta)
         string ssxml = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ss.xml");
         bool xml = File.Exists(ssxml);
         //Console.WriteLine(xml);
@@ -75,7 +75,6 @@ class xbox_shrinker
             rc4file = Path.GetFullPath(args[1]);
         }
 
-        bool scrubbed = mode(fileName, junk);
         MD5 hash = MD5.Create();
         UInt32 seed = 0;
         string rom_md5 = "";
@@ -83,7 +82,12 @@ class xbox_shrinker
         //bool seedflag = false;
         bool xmlentry = false;
         bool seedEntry = false;
-        
+
+        uint[,] dtemp = getDataArray(fileName);
+        uint firstjunksector = getfirstjunksector(dtemp);
+        //Console.WriteLine(firstjunksector.ToString());
+        //Environment.Exit(0);
+        bool scrubbed = mode(fileName, junk, firstjunksector);      
         if (!scrubbed)   //get seed, md5, ssranges
         { 
             XmlDocument ssRanges = new XmlDocument();
@@ -211,7 +215,7 @@ class xbox_shrinker
         { 
             using (BinaryReader br = new BinaryReader(new FileStream(fileName, FileMode.Open)))
             {
-                br.BaseStream.Position = GP_OFFSET;
+                br.BaseStream.Position = (long)firstjunksector * SECTOR_SIZE;
                 seedflag = (br.ReadUInt32() == 1);
                 seed = br.ReadUInt32();
                 br.ReadUInt32();
@@ -235,18 +239,7 @@ class xbox_shrinker
 
         }
         
-        if (scrubbed && !seedflag)
-        {
-            if (!File.Exists(rc4file))
-            {
-                Console.WriteLine("Eror. File not found: " + rc4file);
-                Environment.Exit(0);
-            }
-        }
-        
-        uint[,] dtemp = getDataArray(fileName);
         uint[,] dataranges = mergeArrays(dtemp, security_sectors);
-        
         /*
         //uint[,] dataranges = new uint[12,2];
         Console.WriteLine("\nSS");
@@ -266,8 +259,20 @@ class xbox_shrinker
         {
             Console.WriteLine(dataranges[i, 0].ToString() + " - " + dataranges[i, 1].ToString());
         }
-        */
+        Console.WriteLine("PadSec:   " + (getPadSecCount(dataranges)).ToString() + " Sectors  " + (getPadSecCount(dataranges)*0x800).ToString() + " Bytes");
         //Environment.Exit(0);
+        */
+
+        
+        
+        if (scrubbed && !seedflag)
+        {
+            if (!File.Exists(rc4file))
+            {
+                Console.WriteLine("Eror. File not found: " + rc4file);
+                Environment.Exit(0);
+            }
+        }
         
         if (!scrubbed && !seedflag)
         {
@@ -279,7 +284,7 @@ class xbox_shrinker
         {
             using (BinaryReader br = new BinaryReader(new FileStream(fileName, FileMode.Open)))
             {
-                br.BaseStream.Position = GP_OFFSET;
+                br.BaseStream.Position = (long)firstjunksector * SECTOR_SIZE;
                 br.ReadUInt32();
                 uint rc4headsec = br.ReadUInt32();
                 long rc4head = (long)rc4headsec * SECTOR_SIZE;
@@ -287,13 +292,13 @@ class xbox_shrinker
             
                 if (rc4head != rc4real)
                 {
-                    Console.WriteLine("Filesize Mismatch for rc4 file!\nExpected: " + (rc4head).ToString() + " Bytes\nActual:   " + (rc4real).ToString() + " Bytes");
+                    Console.WriteLine("Error: Filesize Mismatch for rc4 file!\nExpected: " + (rc4head).ToString() + " Bytes\nActual:   " + (rc4real).ToString() + " Bytes");
                     //Console.WriteLine("PadSec:   " + (getPadSecCount(dataranges)*0x800).ToString() + " Bytes");
                     Environment.Exit(0); 
                 }
             }
         }
-        
+        //Console.WriteLine("Seed: " + seed.ToString());
         //Environment.Exit(0);
         string fileNameOut = string.Empty;
         
@@ -341,6 +346,11 @@ class xbox_shrinker
                     BinaryWriter rs = new BinaryWriter(new MemoryStream(randomSector));
                     if (seedflag)
                     {
+                        if (firstjunksector != 198144)
+                        {
+                            Console.WriteLine("Functionality not yet implemented. Please open an issue when you get this error.");
+                            Environment.Exit(0);
+                        }
                         uint a_t = 0;
                         uint b_t = 0;
                         uint c_t = 0;
@@ -420,12 +430,13 @@ class xbox_shrinker
                     {
                         using (BinaryReader rc4i = new BinaryReader(new FileStream(rc4file, FileMode.Open)))
                         {
+                            /*
                             randomSector = rc4i.ReadBytes(SECTOR_SIZE);
                             hash.TransformBlock(randomSector, 0, SECTOR_SIZE, null, 0);
                             
                             br.ReadBytes(SECTOR_SIZE);
                             bw.Write(randomSector);
-                            
+                            */
                             randomSector = rc4i.ReadBytes(SECTOR_SIZE);
                             int currentrange = 0;
                             //while (br.BaseStream.Position < 0x1F400000)
@@ -479,42 +490,9 @@ class xbox_shrinker
                 {
                     using (BinaryWriter rc4o = new BinaryWriter(new FileStream(rc4file, FileMode.OpenOrCreate)))
                     {
-                        // write info to first junk sector
-                        byte[] tempBuffer = br.ReadBytes(SECTOR_SIZE);
-
-                        if (seedflag)
-                        {
-                            bw.Write(BitConverter.GetBytes(1));
-                            
-                        }
-                        else
-                        {
-                            bw.Write(BitConverter.GetBytes(0));
-                        }
-                        bw.Write(BitConverter.GetBytes(seed));  // always 32bit
-                        bw.Write(BitConverter.GetBytes(0));
-                        bw.Write(BitConverter.GetBytes(0));
-                        bw.Write(BitConverter.GetBytes(0));  // space for 128 bit rc4 key (3x32 bit)
-                        bw.Write(StringToByteArray(rom_md5));
-                        bw.Write(BitConverter.GetBytes(16)); // SS count
-                        for (int k = 0; k < 16; k++)  // always 16 Security Secotrs
-                        {
-                            bw.Write(BitConverter.GetBytes(security_sectors[k, 0]));
-                            bw.Write(BitConverter.GetBytes(security_sectors[k, 1]));
-                        }
-                        
-                        while (bw.BaseStream.Position < 0x18300800)
-                        {
-                            bw.Write(Encoding.ASCII.GetBytes("JUNK"));
-                        }
-                        
-                        if (!seedflag)
-                        {
-                            rc4o.Write(tempBuffer);
-                        }
-                        
-                        
                         int currentrange = 0;
+                        //int totaljunk = 0;
+                        byte[] tempBuffer;
                         //while (br.BaseStream.Position < 0x1F400000)
                         while (br.BaseStream.Position != br.BaseStream.Length)
                         {
@@ -532,6 +510,7 @@ class xbox_shrinker
                                     if (sector_n != 3820879) //last sector
                                     {
                                         currentrange ++;
+                                        //Console.WriteLine("Total Junk: " + totaljunk.ToString());
                                     }
                                     else
                                     {
@@ -540,16 +519,50 @@ class xbox_shrinker
                                     
                                 }
                             }
+                            else if (sector_n == firstjunksector)
+                            {
+                                if (seedflag)
+                                {
+                                    bw.Write(BitConverter.GetBytes(1));
+                                    
+                                }
+                                else
+                                {
+                                    bw.Write(BitConverter.GetBytes(0));
+                                }
+                                bw.Write(BitConverter.GetBytes(seed));  // always 32bit
+                                bw.Write(BitConverter.GetBytes(0));
+                                bw.Write(BitConverter.GetBytes(0));
+                                bw.Write(BitConverter.GetBytes(0));  // space for 128 bit rc4 key (3x32 bit)
+                                bw.Write(StringToByteArray(rom_md5));
+                                bw.Write(BitConverter.GetBytes(16)); // SS count
+                                for (int k = 0; k < 16; k++)  // always 16 Security Secotrs
+                                {
+                                    bw.Write(BitConverter.GetBytes(security_sectors[k, 0]));
+                                    bw.Write(BitConverter.GetBytes(security_sectors[k, 1]));
+                                }
+                                
+                                while (bw.BaseStream.Position < (long)(firstjunksector + 1) * 0x800)
+                                {
+                                    bw.Write(Encoding.ASCII.GetBytes("JUNK"));
+                                }
+                                //totaljunk ++;
+                                if (!seedflag)
+                                {
+                                    rc4o.Write(tempBuffer);
+                                }
+                            }
                             else if (sector_n < dataranges[currentrange,0])
                             {
                                 bw.Write(junk);
+                                //totaljunk ++;
                                 if (!seedflag)
                                 {
                                         rc4o.Write(tempBuffer);
                                 }
                             }
                         }
-                        
+                    //Console.WriteLine("Total Junk: " + totaljunk.ToString());   
                     }
                     if (seedflag && File.Exists(rc4file) && (new System.IO.FileInfo(rc4file).Length == 0))
                     {
@@ -666,12 +679,12 @@ class xbox_shrinker
         c_t = (UInt32)(result & 0xFFFFFFFF);
         return c_t ^ a_t;
     }
-    private static bool mode(string fileName, byte[] junk)
+    private static bool mode(string fileName, byte[] junk, uint firstjunksector)
     {
         byte[] buffer = new byte[SECTOR_SIZE];
         using (BinaryReader br = new BinaryReader(new FileStream(fileName, FileMode.Open)))
         {
-            br.BaseStream.Position = GP_OFFSET;
+            br.BaseStream.Position = (long)firstjunksector * SECTOR_SIZE;
             buffer = br.ReadBytes(SECTOR_SIZE);
         }
         for (int i = 1024; i < SECTOR_SIZE; i++)
@@ -1001,12 +1014,35 @@ class xbox_shrinker
                 else //intersecting (unknown if case exists)
                 {
                     datsecs = datsecs + (dataranges[i,1] - high);
+                    Console.WriteLine("Warning: Intersecting ranges");
                 }
                 high = dataranges[i,1];
             }
         }
         return (0x3A4D50 - 0x30600 - datsecs);  //total sectors of redump image - sectors of videopartition - datsecs
     }        
+    
+    private static uint getfirstjunksector(uint[,] dataranges)
+    {
+        //Console.WriteLine("Datarange00 " + dataranges[0,0].ToString());
+        if (dataranges[0,0] != 198144) //first sector of game partition is no data sector
+        {
+            return 198144;
+        }
+        else
+        {
+            for (int i = 0; i < dataranges.GetLength(0); i++)
+            {
+                if ((dataranges[i+1,0] - dataranges[i,1]) > 1) //
+                {
+                    return dataranges[i,1] + 1;
+                }
+            }
+        }
+        Console.WriteLine("Error: No first Junksector found!");
+        Environment.Exit(0);
+        return 0;
+    }
     
     private static int getVersion(string fileName)
     {
