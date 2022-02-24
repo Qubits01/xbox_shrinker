@@ -57,7 +57,7 @@ If it does not exists, a ss.xml file will automatically be created when processi
 ```
 xbox_shrinker.exe <iso/iso.dec file>
 ```
-When unscrubbing a rc4 stream game named `gamename.iso.dec`, the program expects a .rc4 file names `gamename.rc4`.  
+When unscrubbing a rc4 stream game named `gamename.iso.dec`, the program expects a .rc4 file named `gamename.rc4`.  
 Alternatively, you can specify the rc4 file specifically using
 ```
 xbox_shrinker.exe <iso.dec file> <rc4 file>
