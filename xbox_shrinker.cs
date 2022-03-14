@@ -84,6 +84,7 @@ class xbox_shrinker
         bool seedEntry = false;
 
         uint[,] dtemp = getDataArray(fileName);
+        Console.WriteLine("\nData");
         uint firstjunksector = getfirstjunksector(dtemp);
         //Console.WriteLine(firstjunksector.ToString());
         //Environment.Exit(0);
@@ -112,7 +113,7 @@ class xbox_shrinker
             if (!xmlentry)
             {
                 Console.Write("Calculating hash and getting Security Sector Ranges from iso... ");
-                Tuple<uint[,], string> isoprops = getSS(fileName, hash);
+                Tuple<uint[,], string> isoprops = getSS(fileName, hash, dtemp);
                 security_sectors = isoprops.Item1;
                 rom_md5 = isoprops.Item2;
                 Console.WriteLine("done");
@@ -718,12 +719,14 @@ class xbox_shrinker
     }
 
 
-    private static Tuple<uint[,], string> getSS(string iso, MD5 hash)
+    private static Tuple<uint[,], string> getSS(string iso, MD5 hash, uint[,] datasecs)
     {
         List<uint> list = new List<uint>();
         uint[,] temp = new uint[16, 2];
         byte[] blank = new byte[SECTOR_SIZE]; // initial value is 0x00
         bool flag = false;
+        bool isdatasector = true;
+        int datrange = 0;
         uint start = 0;
         uint end = 0;
         uint ssrangecount = 0;
@@ -741,7 +744,22 @@ class xbox_shrinker
             {
                 byte[] isosector = br.ReadBytes(SECTOR_SIZE);
                 hash.TransformBlock(isosector, 0, SECTOR_SIZE, null, 0);
-                if (CompareArrays(blank, isosector) && !flag)
+                if (sectorcount > datasecs[datrange,1])
+                {
+                    if (datasecs.GetLength(0) > datrange)
+                    {
+                        datrange ++;
+                    }
+                }
+                if ((sectorcount >= datasecs[datrange,0]) && (sectorcount <= datasecs[datrange,1]))
+                {
+                    isdatasector = true;
+                }
+                else
+                {
+                    isdatasector = false;
+                }
+                if (CompareArrays(blank, isosector) && !flag && !isdatasector)
                 {
                     start = sectorcount;
                     flag = true;
@@ -779,6 +797,12 @@ class xbox_shrinker
             if (ssrangecount != 16)
             {
                 Console.WriteLine("Aborting. Expected 16 Security Sector Ranges. Found: " + ssrangecount.ToString());
+                Console.WriteLine("\nSS");
+                for (int i = 0; i < temp.GetLength(0); i++)
+                {
+                    Console.WriteLine(temp[i, 0].ToString() + " - " + temp[i, 1].ToString());
+                }     
+                
                 Environment.Exit(0);
             }
 
