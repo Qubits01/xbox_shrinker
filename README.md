@@ -86,6 +86,10 @@ To create and use scrubbed xiso images, please refer to the following diagram:
 <img src="pics/xiso.png">
 </p>
 
+# Batch processing  
+xbox_shrinker does not have a built in batch processing option but it can be easily done with OS shell commands.  
+In Windows open the command line and change to the directory of your isos. Then type the following to convert all the isos in the directory: `for %i in (*.iso) do xbox_shrinker.exe "%i"`  
+
 # Bug report
 The current version has been tested successfully with almost 400 different image files.  
 But please be aware that there might still be bugs present. There are some checks that the program does internally when processing a file so whenever the program quits with an error please open an issue. Not all errors might be identified by the program, though.  
